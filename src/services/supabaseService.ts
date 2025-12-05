@@ -23,50 +23,53 @@ class SupabaseService {
   async getFolders(): Promise<Folder[]> {
     if (!this.client) return [];
     
-    // Get all folders
-    const { data: foldersData, error: folderError } = await this.client
-      .from('folders')
-      .select('*')
-      .order('created_at', { ascending: true });
+    try {
+      // Get all folders
+      const { data: foldersData, error: folderError } = await this.client
+        .from('folders')
+        .select('*')
+        .order('created_at', { ascending: true });
 
-    if (folderError || !foldersData) {
-      console.error('Failed to fetch folders:', folderError);
+      if (folderError || !foldersData) {
+        return [];
+      }
+
+      // Get all documents
+      const { data: documents, error: docError } = await this.client
+        .from('documents')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (docError) {
+        return [];
+      }
+
+      // Map folders with their documents
+      const folders: Folder[] = foldersData.map(folder => {
+        this.folderIdMap.set(folder.name, folder.id);
+        
+        const files: FileItem[] = documents
+          ?.filter(doc => doc.folder_id === folder.id)
+          .map(doc => ({
+            id: doc.id.toString(),
+            name: doc.file_name,
+            content: doc.content || '',
+            isText: doc.parse_status === 'success',
+            fromDocx: doc.file_type === 'docx',
+            timestamp: new Date(doc.created_at).getTime()
+          })) || [];
+
+        return {
+          id: folder.id.toString(),
+          name: folder.name,
+          files
+        };
+      });
+
+      return folders;
+    } catch {
       return [];
     }
-
-    // Get all documents
-    const { data: documents, error: docError } = await this.client
-      .from('documents')
-      .select('*')
-      .order('created_at', { ascending: true });
-
-    if (docError) {
-      console.error('Failed to fetch documents:', docError);
-    }
-
-    // Map folders with their documents
-    const folders: Folder[] = foldersData.map(folder => {
-      this.folderIdMap.set(folder.name, folder.id);
-      
-      const files: FileItem[] = documents
-        ?.filter(doc => doc.folder_id === folder.id)
-        .map(doc => ({
-          id: doc.id.toString(),
-          name: doc.file_name,
-          content: doc.content || '',
-          isText: doc.parse_status === 'success',
-          fromDocx: doc.file_type === 'docx',
-          timestamp: new Date(doc.created_at).getTime()
-        })) || [];
-
-      return {
-        id: folder.id.toString(),
-        name: folder.name,
-        files
-      };
-    });
-
-    return folders;
   }
 
   async createFolder(folder: Folder): Promise<void> {

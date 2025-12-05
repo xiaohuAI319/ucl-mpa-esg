@@ -27,11 +27,9 @@ export const listGeminiModels = async (apiKey: string): Promise<string[]> => {
       })
       .sort() || []; // 按字母排序
     
-    console.log('✅ Gemini 可用模型:', availableModels);
     return availableModels;
     
   } catch (error) {
-    console.error('❌ 获取 Gemini 模型列表失败:', error);
     return []; // 静默失败，返回空数组
   }
 };
@@ -148,8 +146,6 @@ export const generateResponse = async (
       };
 
     } catch (e: any) {
-      console.error("Gemini API Error", e);
-      
       // 处理 429 速率限制错误
       if (e.message?.includes('429') || e.message?.includes('quota')) {
         const retryMatch = e.message.match(/retry in (\d+)/i);
@@ -190,7 +186,6 @@ export const generateResponse = async (
       return { text: content };
 
     } catch (e: any) {
-      console.error("OpenAI/DeepSeek API Error", e);
       throw new Error(e.message);
     }
   }

@@ -54,17 +54,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, settin
   };
 
   const updateSupabaseConfig = (key: string, value: string) => {
-    console.log('🔧 Updating Supabase config:', key, '=', value);
     setLocalSettings(prev => {
-      const updated = {
+      return {
         ...prev,
         supabase: {
           ...prev.supabase,
           [key]: value
         }
       };
-      console.log('📝 Updated localSettings:', updated);
-      return updated;
     });
   };
 
@@ -353,7 +350,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, settin
         <div className="flex gap-3 mt-8">
           <button 
             onClick={() => {
-              console.log('💾 Saving settings from dialog:', localSettings);
               onSave(localSettings);
               onClose();
             }}

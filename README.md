@@ -22,12 +22,14 @@
 - **OpenAI GPT-4o** - 高质量学术分析
 - **DeepSeek** - 性价比之王（便宜 25 倍）
 - **Google Gemini** - 免费配额充足
+- 🔄 **动态模型列表** - 自动加载可用模型（v2.2 新增）
 - 🌐 可选网络搜索增强
 
 ### 🚀 **现代化部署**
 - **Cloudflare Pages** - 全球 CDN，自动部署
 - **Supabase** - PostgreSQL + Storage + Realtime
 - **完全无服务器** - 零运维成本
+- 🌐 **在线访问**：https://c96def02.ucl-mpa-esg.pages.dev（v2.3）
 
 ---
 

@@ -79,7 +79,7 @@ function App() {
       try {
         return JSON.parse(saved);
       } catch (e) {
-        console.error('Failed to parse saved settings:', e);
+        // Parse error, use default
       }
     }
     return DEFAULT_SETTINGS;
@@ -89,31 +89,18 @@ function App() {
 
   // Initialize Supabase
   useEffect(() => {
-    console.log('🔍 Checking Supabase settings:', {
-      hasUrl: !!settings.supabase?.url,
-      hasKey: !!settings.supabase?.publishableKey
-    });
-    
     if (settings.supabase?.url && settings.supabase?.publishableKey) {
-      console.log('✅ Initializing Supabase with:', {
-        url: settings.supabase.url,
-        key: settings.supabase.publishableKey.substring(0, 20) + '...'
-      });
       supabaseService.initialize(settings.supabase.url, settings.supabase.publishableKey);
       setIsSupabaseConnected(true);
       loadDataFromSupabase();
     } else {
-      console.log('❌ Supabase credentials not found in settings');
       setIsSupabaseConnected(false);
     }
   }, [settings.supabase?.url, settings.supabase?.publishableKey]);
 
   // Save settings
   useEffect(() => {
-    const settingsStr = JSON.stringify(settings);
-    console.log('💾 Auto-saving settings to localStorage:', settingsStr);
-    localStorage.setItem('ucl_mpa_settings_v2', settingsStr);
-    console.log('✅ Settings saved to localStorage');
+    localStorage.setItem('ucl_mpa_settings_v2', JSON.stringify(settings));
   }, [settings]);
 
   // Auto scroll to bottom
@@ -142,7 +129,7 @@ function App() {
         }
       }
     } catch (err) {
-      console.error('Failed to load data from Supabase:', err);
+      // Silent fail
     }
   };
 
@@ -150,11 +137,8 @@ function App() {
   const handleAddFolder = async () => {
     if (!newFolderName.trim()) return;
     
-    console.log('📁 Creating folder:', newFolderName);
-    
     if (isSupabaseConnected) {
       try {
-        // Create in Supabase first to get the real ID
         const tempFolder: Folder = {
           id: 'temp',
           name: newFolderName,
@@ -162,17 +146,12 @@ function App() {
         };
         
         await supabaseService.createFolder(tempFolder);
-        console.log('✅ Folder created in Supabase');
-        
-        // Reload folders from Supabase to get the real ID
         const updatedFolders = await supabaseService.getFolders();
         setFolders(updatedFolders);
       } catch (err) {
-        console.error('❌ Failed to create folder:', err);
         alert('创建文件夹失败，请检查 Supabase 连接。');
       }
     } else {
-      // Local mode: use timestamp ID
       const newFolder: Folder = {
         id: Date.now().toString(),
         name: newFolderName,
@@ -191,7 +170,7 @@ function App() {
       try {
         await supabaseService.deleteFolder(folderId);
       } catch (err) {
-        console.error('Failed to delete folder:', err);
+        // Silent fail
       }
     }
     
@@ -201,14 +180,11 @@ function App() {
   const handleDeleteFile = async (folderId: string, fileId: string) => {
     if (!window.confirm('确定要删除这个文件吗？')) return;
     
-    console.log('🗑️ Deleting file:', fileId, 'from folder:', folderId);
-    
     if (isSupabaseConnected) {
       try {
         await supabaseService.deleteDocument(fileId);
-        console.log('✅ File deleted from Supabase');
       } catch (err) {
-        console.error('❌ Failed to delete file:', err);
+        // Silent fail
       }
     }
     
@@ -227,27 +203,17 @@ function App() {
   const handleFileUpload = async (folderId: string, files: FileList | null) => {
     if (!files) return;
     
-    console.log('📤 Starting file upload...', { folderId, fileCount: files.length, isSupabaseConnected });
-    
     const fileArray = Array.from(files);
     const processedFiles = await Promise.all(fileArray.map(parseFile));
     
-    console.log('📄 Files processed:', processedFiles.map(f => ({ id: f.id, name: f.name })));
-    
-    // Upload to Supabase if connected
     if (isSupabaseConnected) {
-      console.log('☁️ Uploading to Supabase...');
       for (const file of processedFiles) {
         try {
-          console.log('⬆️ Uploading file:', file.name);
           await supabaseService.uploadDocument(folderId, file);
-          console.log('✅ File uploaded:', file.name);
         } catch (err) {
-          console.error('❌ Failed to upload to Supabase:', err);
+          // Silent fail
         }
       }
-    } else {
-      console.log('⚠️ Supabase not connected, files stored locally only');
     }
     
     setFolders(prev => prev.map(f => {
@@ -327,11 +293,10 @@ function App() {
           await supabaseService.saveMessage(conversationId, userMsg);
           await supabaseService.saveMessage(conversationId, aiMsg);
         } catch (err) {
-          console.error('Failed to save messages to Supabase:', err);
+          // Silent fail
         }
       }
     } catch (err: any) {
-      console.error(err);
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: 'assistant',
@@ -352,12 +317,9 @@ function App() {
   };
 
   const handleSettingsSave = (newSettings: AppSettings) => {
-    console.log('💾 Saving settings:', newSettings);
     setSettings(newSettings);
     
-    // Reinitialize Supabase if credentials changed
     if (newSettings.supabase?.url && newSettings.supabase?.publishableKey) {
-      console.log('🔄 Reinitializing Supabase...');
       supabaseService.initialize(newSettings.supabase.url, newSettings.supabase.publishableKey);
       setIsSupabaseConnected(true);
       loadDataFromSupabase();
