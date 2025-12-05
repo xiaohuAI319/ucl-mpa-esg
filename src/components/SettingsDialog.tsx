@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppSettings, AIProvider } from '../types';
 import { supabaseService } from '../services/supabaseService';
-import { DEFAULT_SYSTEM_PROMPT } from '../services/gptService';
+import { DEFAULT_SYSTEM_PROMPT, listGeminiModels } from '../services/gptService';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -17,11 +17,28 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, settin
   const [activeTab, setActiveTab] = useState<SettingsTab>('database');
   const [viewProvider, setViewProvider] = useState<AIProvider>(settings.activeProvider);
   const [testStatus, setTestStatus] = useState<string>('');
+  const [geminiModels, setGeminiModels] = useState<string[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
 
   useEffect(() => {
     setLocalSettings(settings);
     setViewProvider(settings.activeProvider);
-  }, [settings, isOpen]);
+  }, [settings.activeProvider, settings.providers, settings.supabase, settings.systemPrompt, isOpen]);
+
+  // 页面初始化时，如果有 Gemini Key，自动获取模型列表
+  useEffect(() => {
+    if (isOpen && settings.providers.gemini?.apiKey) {
+      loadGeminiModels(settings.providers.gemini.apiKey);
+    }
+  }, [isOpen]);
+
+  // 加载 Gemini 模型列表
+  const loadGeminiModels = async (apiKey: string) => {
+    setIsLoadingModels(true);
+    const models = await listGeminiModels(apiKey);
+    setGeminiModels(models);
+    setIsLoadingModels(false);
+  };
 
   const updateProviderConfig = (key: string, value: string) => {
     setLocalSettings(prev => ({
@@ -215,13 +232,53 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, settin
 
               {/* Model Name */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 pl-2">模型名称</label>
-                <input 
-                  className="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-slate-200"
-                  placeholder={viewProvider === 'gemini' ? "gemini-2.0-flash-exp" : viewProvider === 'deepseek' ? "deepseek-chat" : "gpt-4o"}
-                  value={currentConfig.model}
-                  onChange={e => updateProviderConfig('model', e.target.value)}
-                />
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 pl-2">
+                  模型名称
+                  {viewProvider === 'gemini' && isLoadingModels && (
+                    <span className="ml-2 text-blue-500">🔄 加载中...</span>
+                  )}
+                  {viewProvider === 'gemini' && !isLoadingModels && geminiModels.length === 0 && (
+                    <span className="ml-2 text-yellow-500">⚠️ 请先配置 API Key</span>
+                  )}
+                </label>
+                {viewProvider === 'gemini' ? (
+                  geminiModels.length > 0 ? (
+                    <select
+                      className="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all"
+                      value={currentConfig.model}
+                      onChange={e => updateProviderConfig('model', e.target.value)}
+                    >
+                      {geminiModels.map(model => (
+                        <option key={model} value={model}>
+                          {model}
+                          {model.includes('flash') ? ' ⚡' : ''}
+                          {model.includes('pro') ? ' 💎' : ''}
+                          {model.includes('exp') ? ' 🧪' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input 
+                      className="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-slate-200"
+                      placeholder="gemini-1.5-flash"
+                      value={currentConfig.model}
+                      onChange={e => updateProviderConfig('model', e.target.value)}
+                      disabled={isLoadingModels}
+                    />
+                  )
+                ) : (
+                  <input 
+                    className="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-slate-200"
+                    placeholder={viewProvider === 'deepseek' ? "deepseek-chat" : "gpt-4o"}
+                    value={currentConfig.model}
+                    onChange={e => updateProviderConfig('model', e.target.value)}
+                  />
+                )}
+                {viewProvider === 'gemini' && geminiModels.length > 0 && (
+                  <p className="text-xs text-slate-400 mt-2 pl-2">
+                    ✅ 已加载 {geminiModels.length} 个可用模型
+                  </p>
+                )}
               </div>
 
               {/* API Key */}
@@ -235,6 +292,27 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, settin
                   onChange={e => updateProviderConfig('apiKey', e.target.value)}
                 />
               </div>
+
+              {/* Gemini Test Button */}
+              {viewProvider === 'gemini' && (
+                <button
+                  onClick={() => {
+                    if (currentConfig.apiKey) {
+                      loadGeminiModels(currentConfig.apiKey);
+                    }
+                  }}
+                  disabled={!currentConfig.apiKey || isLoadingModels}
+                  className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
+                    geminiModels.length > 0 ? 'bg-green-100 text-green-600' :
+                    isLoadingModels ? 'bg-yellow-100 text-yellow-600' :
+                    'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+                  }`}
+                >
+                  {isLoadingModels ? '🔄 加载模型列表中...' :
+                   geminiModels.length > 0 ? `✓ 已加载 ${geminiModels.length} 个模型` :
+                   '🔍 测试 API Key 并加载模型'}
+                </button>
+              )}
             </div>
           )}
 

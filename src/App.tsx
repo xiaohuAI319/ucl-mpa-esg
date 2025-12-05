@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
     gemini: {
       baseUrl: '',
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-1.5-flash',
       apiKey: ''
     }
   },
@@ -116,12 +116,17 @@ function App() {
     console.log('✅ Settings saved to localStorage');
   }, [settings]);
 
-  // Auto scroll
+  // Auto scroll to bottom
   useEffect(() => {
-    if (activeTab === 'chat') {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, activeTab]);
+    // 使用 setTimeout 确保 DOM 已更新
+    const timer = setTimeout(() => {
+      if (activeTab === 'chat' && chatEndRef.current) {
+        chatEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [messages.length, activeTab, isLoading]);
 
   // Load data from Supabase
   const loadDataFromSupabase = async () => {
@@ -430,7 +435,16 @@ function App() {
           {/* Tab Switcher (Mobile) */}
           <div className="md:hidden px-6 py-2 flex gap-2">
              <button onClick={() => setActiveTab('files')} className={`flex-1 py-2 rounded-xl font-bold text-sm ${activeTab === 'files' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>笔记</button>
-             <button onClick={() => setActiveTab('chat')} className={`flex-1 py-2 rounded-xl font-bold text-sm ${activeTab === 'chat' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>聊天</button>
+             <button 
+               onClick={() => {
+                 setActiveTab('chat');
+                 // 切换到聊天时立即滚动到底部
+                 setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 150);
+               }} 
+               className={`flex-1 py-2 rounded-xl font-bold text-sm ${activeTab === 'chat' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}
+             >
+               聊天
+             </button>
           </div>
 
           {/* Files List */}
@@ -538,16 +552,27 @@ function App() {
             </div>
 
             {/* Toggle Search */}
-            <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border-2 border-slate-100 shadow-sm">
+            <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border-2 border-slate-100 shadow-sm group relative">
                <span className={`text-xs font-bold uppercase tracking-wider transition-colors ${useSearch ? 'text-indigo-600' : 'text-slate-400'}`}>
                  网络搜索
                </span>
                <button 
                  onClick={() => setUseSearch(!useSearch)}
                  className={`w-11 h-6 rounded-full p-0.5 transition-all duration-200 ${useSearch ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-slate-300'}`}
+                 disabled={settings.activeProvider !== 'gemini'}
+                 title={settings.activeProvider === 'gemini' ? 'Gemini Google Search（需要特殊 API 权限）' : '网络搜索仅限 Gemini 使用'}
                >
-                 <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${useSearch ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                 <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${useSearch ? 'translate-x-5' : 'translate-x-0'} ${settings.activeProvider !== 'gemini' ? 'opacity-50' : ''}`}></div>
                </button>
+               
+               {/* Tooltip */}
+               {useSearch && (
+                 <div className="hidden group-hover:block absolute top-full right-0 mt-2 w-64 bg-yellow-50 border-2 border-yellow-200 rounded-xl p-3 shadow-lg z-50 text-xs text-yellow-700 font-medium">
+                   {settings.activeProvider === 'gemini' 
+                     ? '⚠️ Gemini 的 Google Search 功能需要特殊 API 访问权限。当前将使用标准模式。'
+                     : '⚠️ 网络搜索仅限 Gemini 使用'}
+                 </div>
+               )}
             </div>
           </div>
 
