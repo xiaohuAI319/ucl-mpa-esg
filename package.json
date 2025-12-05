@@ -1,0 +1,28 @@
+{
+  "name": "ucl-mpa-esg",
+  "version": "1.0.0",
+  "description": "UCL MPA ESG Academic Assistant - Personal knowledge base with RAG",
+  "scripts": {
+    "dev": "npx http-server -p 8080",
+    "deploy": "wrangler pages deploy ."
+  },
+  "keywords": [
+    "RAG",
+    "knowledge-base",
+    "AI",
+    "GPT",
+    "DeepSeek",
+    "Gemini",
+    "Supabase"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "mammoth": "^1.6.0",
+    "pdfjs-dist": "^3.11.174"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
