@@ -1,0 +1,5 @@
+{
+  "name": "UCL MPA ESG Assistant",
+  "description": "A cute, warm academic assistant for UCL MPA students. Supports GPT, DeepSeek, Gemini, and local notes analysis.",
+  "requestFramePermissions": []
+}

@@ -1,187 +1,297 @@
-# UCL MPA ESG 学术助手
+# UCL MPA ESG Academic Assistant 🎓🐻
 
-基于个人知识库的AI学术助手，支持多格式文档上传，使用RAG技术进行智能问答。
+超可爱的学术助手！基于 **Supabase + Cloudflare Pages + React + TypeScript** 打造的个人知识库 RAG 系统
 
-## 🎯 功能特性
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![React](https://img.shields.io/badge/React-19-61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6)
 
-### 核心功能
-- ✅ **多格式支持**: TXT, MD, DOCX, PDF, PPTX
-- ✅ **云端存储**: 基于 Supabase Storage + PostgreSQL
-- ✅ **向量搜索**: 使用 pgvector 实现语义检索
-- ✅ **多AI模型**: 支持 GPT-4o / DeepSeek / Gemini
-- ✅ **实时同步**: 跨设备访问知识库
+---
 
-### 技术栈
-- **前端**: HTML + Tailwind CSS + Vanilla JS
-- **部署**: Cloudflare Pages
-- **数据库**: Supabase PostgreSQL + pgvector
-- **文件存储**: Supabase Storage
-- **AI**: OpenAI / DeepSeek / Gemini API
+## ✨ 特性
+
+### 🎨 **可爱的 UI 设计**
+- 🐻 萌系 Kawaii 风格界面
+- 🌈 温暖的配色方案（cream, peach, lavender）
+- ✨ 流畅的动画和交互
+- 📱 完全响应式设计
+
+### 📚 **强大的知识库**
+- 📤 支持多种格式：`.txt`, `.md`, `.docx`, `.pdf` (即将支持 `.pptx`)
+- 📁 文件夹分类管理
+- ☁️ Supabase 云端存储（500MB 免费空间）
+- 🔍 RAG 智能检索
+
+### 🤖 **多 AI 模型支持**
+- **OpenAI GPT-4o** - 高质量学术分析
+- **DeepSeek** - 性价比之王（便宜 25 倍）
+- **Google Gemini** - 免费配额充足
+- 🌐 可选网络搜索增强
+
+### 🚀 **现代化部署**
+- **Cloudflare Pages** - 全球 CDN，自动部署
+- **Supabase** - PostgreSQL + Storage + Realtime
+- **完全无服务器** - 零运维成本
+
+---
 
 ## 🚀 快速开始
 
-### 1. 克隆仓库
+### 1. 克隆项目
+
 ```bash
 git clone https://github.com/xiaohuAI319/ucl-mpa-esg.git
 cd ucl-mpa-esg
 ```
 
-### 2. 配置 Supabase
+### 2. 安装依赖
 
-#### 创建 Supabase 项目
-1. 访问 [supabase.com](https://supabase.com)
-2. 创建新项目
-3. 获取 `SUPABASE_URL` 和 `SUPABASE_ANON_KEY`
-
-#### 执行数据库迁移
-在 Supabase SQL Editor 中执行 `supabase/schema.sql`
-
-#### 配置 Storage Bucket
-```sql
--- 创建存储桶
-insert into storage.buckets (id, name, public) 
-values ('documents', 'documents', false);
-
--- 设置访问策略
-create policy "用户可以上传文件"
-on storage.objects for insert
-to authenticated
-with check (bucket_id = 'documents');
-
-create policy "用户可以查看自己的文件"
-on storage.objects for select
-to authenticated
-using (bucket_id = 'documents');
-```
-
-### 3. 配置前端
-编辑 `index.html`，填入你的配置：
-```javascript
-const SUPABASE_URL = 'your-project-url.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-key';
-```
-
-### 4. 部署到 Cloudflare Pages
-
-#### 通过 GitHub 部署（推荐）
-1. 将代码推送到 GitHub
-2. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com)
-3. 进入 Pages → Create a project
-4. 连接 GitHub 仓库 `ucl-mpa-esg`
-5. 配置构建设置：
-   - Build command: 留空（纯静态）
-   - Build output directory: `/`
-6. 点击 Deploy
-
-#### 通过 Wrangler CLI 部署
 ```bash
-npm install -g wrangler
-wrangler pages deploy . --project-name=ucl-mpa-esg
+npm install
 ```
 
-### 5. 配置 AI API
-在应用设置中填入：
-- OpenAI API Key
-- DeepSeek API Key
-- Gemini API Key
+### 3. 配置 Supabase
+
+1. 创建 Supabase 项目：https://supabase.com
+2. 执行 `supabase/schema.sql` 中的 SQL
+3. 创建 Storage bucket：`documents`
+
+### 4. 本地开发
+
+```bash
+npm run dev
+```
+
+访问 http://localhost:3000
+
+在设置中配置：
+- Supabase URL 和 Anon Key
+- AI API Keys（至少配置一个）
+
+### 5. 部署到 Cloudflare Pages
+
+#### 方法 A：通过 Dashboard（推荐）
+
+1. 访问 https://dash.cloudflare.com
+2. **Workers & Pages** → **Create application** → **Pages**
+3. 连接 GitHub 仓库
+4. 构建设置：
+   ```
+   Build command: npm run build
+   Build output directory: dist
+   ```
+5. 添加环境变量（可选）：
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+
+#### 方法 B：使用 Wrangler CLI
+
+```bash
+npm run build
+npm run deploy
+```
+
+---
+
+## 📖 使用指南
+
+### 📚 知识库管理
+
+1. **创建文件夹**
+   - 输入名称（如 "Week 1 - Policy Analysis"）
+   - 点击 `+` 按钮
+
+2. **上传文件**
+   - 点击文件夹的 "Add Notes" 按钮
+   - 选择文件或拖拽上传
+   - 支持批量上传
+
+3. **文件解析**
+   - `.txt`, `.md` - 直接读取
+   - `.docx` - mammoth.js 解析
+   - `.pdf` - 标记已上传（完整解析即将支持）
+
+### 💬 AI 聊天
+
+1. **选择模型**
+   - 右上角下拉框选择 AI 模型
+   - 建议：日常用 DeepSeek，重要分析用 GPT-4o
+
+2. **提问技巧**
+   - ✅ "总结我的笔记中关于 ESG 的内容"
+   - ✅ "公共政策分析的主要框架是什么？"
+   - ❌ "讲讲 ESG"（太宽泛）
+
+3. **网络搜索**
+   - 开启后，AI 会搜索学术数据库
+   - 仅 Gemini 支持此功能
+
+### ⚙️ 设置配置
+
+#### Supabase
+```
+URL: https://xxx.supabase.co
+Anon Key: eyJhbGci...
+```
+
+#### OpenAI
+```
+Base URL: https://api.openai.com/v1/chat/completions
+Model: gpt-4o-mini
+API Key: sk-proj-...
+```
+
+#### DeepSeek
+```
+Base URL: https://api.deepseek.com/chat/completions
+Model: deepseek-chat
+API Key: sk-...
+```
+
+#### Gemini
+```
+Model: gemini-2.0-flash-exp
+API Key: AIzaSy...
+```
+
+---
+
+## 🛠 技术栈
+
+### 前端
+- **React 19** + **TypeScript**
+- **Vite** - 极速构建
+- **Tailwind CSS** - 实用优先的 CSS
+- **Mammoth.js** - DOCX 解析
+
+### 后端/数据
+- **Supabase**
+  - PostgreSQL + pgvector
+  - Storage (对象存储)
+  - Realtime (可选)
+
+### AI
+- **OpenAI API** - GPT-4o
+- **DeepSeek API** - 开源高性价比
+- **Google Gemini API** - 免费额度
+
+### 部署
+- **Cloudflare Pages** - 前端托管
+- **GitHub Actions** - CI/CD
+
+---
 
 ## 📁 项目结构
 
 ```
 ucl-mpa-esg/
-├── index.html              # 主页面
+├── src/
+│   ├── components/
+│   │   ├── Icons.tsx          # SVG 图标组件
+│   │   └── SettingsDialog.tsx # 设置对话框
+│   ├── services/
+│   │   ├── fileService.ts     # 文件解析服务
+│   │   ├── gptService.ts      # AI 推理服务
+│   │   └── supabaseService.ts # Supabase 客户端
+│   ├── App.tsx                # 主应用组件
+│   ├── types.ts               # TypeScript 类型定义
+│   ├── index.tsx              # 入口文件
+│   └── index.css              # 全局样式
 ├── supabase/
-│   ├── schema.sql          # 数据库结构
-│   └── functions/          # Edge Functions（可选）
-│       └── parse-document/ # 文档解析函数
-├── styles/
-│   └── custom.css          # 自定义样式（可选）
-├── js/
-│   ├── supabase-client.js  # Supabase 客户端
-│   ├── file-handler.js     # 文件处理
-│   └── ai-chat.js          # AI 对话
-└── README.md               # 本文件
+│   └── schema.sql             # 数据库结构
+├── index.html                 # HTML 模板
+├── vite.config.ts             # Vite 配置
+├── tailwind.config.js         # Tailwind 配置
+├── tsconfig.json              # TypeScript 配置
+├── package.json               # 依赖管理
+├── DEPLOYMENT.md              # 部署详细指南
+├── USAGE.md                   # 使用手册
+└── README.md                  # 项目说明
+
 ```
-
-## 💾 数据库结构
-
-### documents 表
-```sql
-- id: bigserial primary key
-- user_id: uuid (references auth.users)
-- folder_name: text
-- file_name: text
-- file_type: text (pdf, docx, txt, etc)
-- storage_path: text
-- content: text
-- embedding: vector(1536)
-- metadata: jsonb
-- created_at: timestamp
-```
-
-### folders 表
-```sql
-- id: bigserial primary key
-- user_id: uuid
-- name: text
-- created_at: timestamp
-```
-
-## 🔧 高级配置
-
-### 自定义 Embedding 模型
-默认使用 OpenAI `text-embedding-3-small`，可以修改为：
-- OpenAI `text-embedding-3-large` (3072维)
-- Cohere `embed-multilingual-v3.0`
-- 本地模型（需要 Edge Function）
-
-### 文档解析
-- **TXT/MD**: 前端直接读取
-- **DOCX**: mammoth.js (前端)
-- **PDF**: pdf.js 或 Supabase Edge Function
-- **PPT**: Supabase Edge Function + python-pptx
-
-## 📖 使用说明
-
-### 1. 上传文档
-- 创建文件夹
-- 拖拽或选择文件上传
-- 系统自动解析并向量化
-
-### 2. AI 对话
-- 选择 AI 模型
-- 输入问题
-- 系统自动检索相关文档
-- 生成学术风格回答
-
-### 3. 自定义提示词
-- 在设置中编辑 System Prompt
-- 可保存多个模板
-
-## 🛡️ 安全说明
-
-- ⚠️ 不要提交 API Keys 到代码库
-- ⚠️ 使用环境变量管理敏感信息
-- ⚠️ Supabase RLS 确保数据隔离
-- ⚠️ 仅个人使用，不要分享 API Keys
-
-## 📝 开发计划
-
-- [ ] 添加 PPT 解析支持
-- [ ] 优化向量搜索性能
-- [ ] 添加对话历史管理
-- [ ] 支持网络搜索增强
-- [ ] 多语言界面
-- [ ] 移动端适配
-
-## 📄 License
-
-MIT License
-
-## 👤 作者
-
-xiaohuAI319
 
 ---
 
-**欢迎 Star ⭐ 和 Fork 🍴**
+## 💰 成本估算
+
+### 免费层（个人使用完全够用）
+
+| 服务 | 免费额度 | 预估使用 |
+|------|---------|---------|
+| **Supabase** | 500MB 存储 + 无限行 | < 100MB |
+| **Cloudflare Pages** | 无限带宽 + 500次构建/月 | < 50次构建 |
+| **DeepSeek API** | $5 赠金 | $0.5/月 |
+| **Gemini API** | 每天免费 1500次请求 | 足够使用 |
+
+**总成本：$0-2/月** （仅 AI API 费用，选 DeepSeek 更便宜）
+
+---
+
+## 🎯 使用场景
+
+### 📖 复习考试
+```
+上传所有课程 PPT 和笔记 → 提问
+"总结 Week 1-4 的核心概念"
+"ESG 评估的关键指标有哪些？"
+```
+
+### ✍️ 写作业
+```
+上传相关阅读材料 → 提问
+"帮我列出关于[主题]的论文大纲"
+"这个案例可以用哪些理论框架分析？"
+```
+
+### 📝 整理笔记
+```
+上传原始课堂笔记 → 提问
+"将这份笔记整理成结构化大纲"
+"生成这份笔记的思维导图"
+```
+
+### 🔍 查找信息
+```
+输入问题 → AI 搜索知识库
+"在哪份材料中提到了制度分析？"
+"找出所有关于气候政策的内容"
+```
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+### 开发计划
+
+- [ ] 完整的 PDF 解析（pdf.js）
+- [ ] PPT 文件支持（pptx.js）
+- [ ] 向量语义搜索（pgvector）
+- [ ] 对话历史管理
+- [ ] 多用户支持（Supabase Auth）
+- [ ] 导出 Markdown/PDF
+- [ ] 移动端 App
+
+---
+
+## 📄 许可证
+
+MIT License - 自由使用、修改和分发
+
+---
+
+## 💝 致谢
+
+- [Supabase](https://supabase.com) - 开源的 Firebase 替代品
+- [Cloudflare](https://www.cloudflare.com) - 全球 CDN 和边缘计算
+- [OpenAI](https://openai.com) - GPT 系列模型
+- [DeepSeek](https://www.deepseek.com) - 高性价比 AI
+- [Google Gemini](https://ai.google.dev) - 免费 AI API
+
+---
+
+**Made with 🐻 for UCL MPA students**
+
+如需帮助，请查看 [DEPLOYMENT.md](./DEPLOYMENT.md) 和 [USAGE.md](./USAGE.md)

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UCL MPA ESG Assistant</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Nunito Rounded for extra cuteness -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Mammoth.js for .docx parsing -->
+    <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Nunito', 'sans-serif'],
+            },
+            colors: {
+              cream: '#FFFBF0',
+              milk: '#FDF6E3',
+              lavender: '#E6E6FA',
+              matcha: '#D0F0C0',
+              peach: '#FFDAB9',
+              sky: '#B0E0E6',
+              salmon: '#FA8072',
+              slate: {
+                750: '#2D3748', // Softer dark
+              }
+            },
+            boxShadow: {
+              'cute': '0 8px 0 0 rgba(0,0,0,0.1)',
+              'cute-hover': '0 4px 0 0 rgba(0,0,0,0.1)',
+              'card': '0 4px 20px rgba(0,0,0,0.05)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Nunito', sans-serif;
+        background-color: #FFFBF0; /* Cream background */
+        background-image: radial-gradient(#FFE4E1 1px, transparent 1px);
+        background-size: 20px 20px;
+      }
+      /* Cute Scrollbar */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #FFDAB9; /* Peach */
+        border-radius: 10px;
+        border: 2px solid #FFFBF0;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #FA8072;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "@google/genai": "https://esm.run/@google/genai"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
