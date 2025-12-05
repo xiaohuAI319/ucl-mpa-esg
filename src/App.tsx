@@ -20,7 +20,7 @@ const INITIAL_MESSAGES: Message[] = [
   { 
     id: 'intro', 
     role: 'assistant', 
-    content: "Hi friend! 🐻 I'm your UCL MPA study buddy. \n\nUpload your notes (DOCX/TXT/MD/PDF/PPT) to build your knowledge base, and I'll help you ace your ESG analysis!",
+    content: "你好呀！🐻 我是你的 UCL MPA 学习助手。\n\n上传你的笔记（DOCX/TXT/MD/PDF/PPT）来构建知识库，我会帮你搞定 ESG 分析！",
     timestamp: Date.now() 
   }
 ];
@@ -46,7 +46,18 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   supabase: {
     url: '',
-    anonKey: ''
+    publishableKey: ''
+  },
+  systemPrompt: {
+    systemPrompt: `You are an academic assistant for a UCL MPA (ESG) student.
+
+Analyze questions from an academic policy perspective, focusing on:
+- Environmental, Social, and Governance (ESG) frameworks
+- Public policy analysis
+- Institutional perspectives
+- Evidence-based recommendations
+
+Use the provided notes context to ground your answers. Maintain an academic tone while being helpful and clear.`
   }
 };
 
@@ -61,28 +72,48 @@ function App() {
   const [useSearch, setUseSearch] = useState(false);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
   
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  // Initialize settings from localStorage
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    const saved = localStorage.getItem('ucl_mpa_settings_v2');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved settings:', e);
+      }
+    }
+    return DEFAULT_SETTINGS;
+  });
   const [newFolderName, setNewFolderName] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize Supabase
   useEffect(() => {
-    const savedSettings = localStorage.getItem('ucl_mpa_settings_v2');
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      setSettings(parsed);
-      
-      if (parsed.supabase?.url && parsed.supabase?.anonKey) {
-        supabaseService.initialize(parsed.supabase.url, parsed.supabase.anonKey);
-        setIsSupabaseConnected(true);
-        loadDataFromSupabase();
-      }
+    console.log('🔍 Checking Supabase settings:', {
+      hasUrl: !!settings.supabase?.url,
+      hasKey: !!settings.supabase?.publishableKey
+    });
+    
+    if (settings.supabase?.url && settings.supabase?.publishableKey) {
+      console.log('✅ Initializing Supabase with:', {
+        url: settings.supabase.url,
+        key: settings.supabase.publishableKey.substring(0, 20) + '...'
+      });
+      supabaseService.initialize(settings.supabase.url, settings.supabase.publishableKey);
+      setIsSupabaseConnected(true);
+      loadDataFromSupabase();
+    } else {
+      console.log('❌ Supabase credentials not found in settings');
+      setIsSupabaseConnected(false);
     }
-  }, []);
+  }, [settings.supabase?.url, settings.supabase?.publishableKey]);
 
   // Save settings
   useEffect(() => {
-    localStorage.setItem('ucl_mpa_settings_v2', JSON.stringify(settings));
+    const settingsStr = JSON.stringify(settings);
+    console.log('💾 Auto-saving settings to localStorage:', settingsStr);
+    localStorage.setItem('ucl_mpa_settings_v2', settingsStr);
+    console.log('✅ Settings saved to localStorage');
   }, [settings]);
 
   // Auto scroll
@@ -114,22 +145,34 @@ function App() {
   const handleAddFolder = async () => {
     if (!newFolderName.trim()) return;
     
-    const newFolder: Folder = {
-      id: Date.now().toString(),
-      name: newFolderName,
-      files: []
-    };
+    console.log('📁 Creating folder:', newFolderName);
     
     if (isSupabaseConnected) {
       try {
-        await supabaseService.createFolder(newFolder);
-        setFolders([...folders, newFolder]);
+        // Create in Supabase first to get the real ID
+        const tempFolder: Folder = {
+          id: 'temp',
+          name: newFolderName,
+          files: []
+        };
+        
+        await supabaseService.createFolder(tempFolder);
+        console.log('✅ Folder created in Supabase');
+        
+        // Reload folders from Supabase to get the real ID
+        const updatedFolders = await supabaseService.getFolders();
+        setFolders(updatedFolders);
       } catch (err) {
-        console.error('Failed to create folder:', err);
-        alert('Failed to create folder. Using local storage.');
-        setFolders([...folders, newFolder]);
+        console.error('❌ Failed to create folder:', err);
+        alert('创建文件夹失败，请检查 Supabase 连接。');
       }
     } else {
+      // Local mode: use timestamp ID
+      const newFolder: Folder = {
+        id: Date.now().toString(),
+        name: newFolderName,
+        files: []
+      };
       setFolders([...folders, newFolder]);
     }
     
@@ -137,7 +180,7 @@ function App() {
   };
 
   const handleDeleteFolder = async (folderId: string) => {
-    if (!window.confirm('Delete this folder? 🥺')) return;
+    if (!window.confirm('确定要删除这个文件夹吗？🥺')) return;
     
     if (isSupabaseConnected) {
       try {
@@ -150,21 +193,56 @@ function App() {
     setFolders(folders.filter(f => f.id !== folderId));
   };
 
+  const handleDeleteFile = async (folderId: string, fileId: string) => {
+    if (!window.confirm('确定要删除这个文件吗？')) return;
+    
+    console.log('🗑️ Deleting file:', fileId, 'from folder:', folderId);
+    
+    if (isSupabaseConnected) {
+      try {
+        await supabaseService.deleteDocument(fileId);
+        console.log('✅ File deleted from Supabase');
+      } catch (err) {
+        console.error('❌ Failed to delete file:', err);
+      }
+    }
+    
+    // Update local state
+    setFolders(folders.map(folder => {
+      if (folder.id === folderId) {
+        return {
+          ...folder,
+          files: folder.files.filter(file => file.id !== fileId)
+        };
+      }
+      return folder;
+    }));
+  };
+
   const handleFileUpload = async (folderId: string, files: FileList | null) => {
     if (!files) return;
+    
+    console.log('📤 Starting file upload...', { folderId, fileCount: files.length, isSupabaseConnected });
     
     const fileArray = Array.from(files);
     const processedFiles = await Promise.all(fileArray.map(parseFile));
     
+    console.log('📄 Files processed:', processedFiles.map(f => ({ id: f.id, name: f.name })));
+    
     // Upload to Supabase if connected
     if (isSupabaseConnected) {
+      console.log('☁️ Uploading to Supabase...');
       for (const file of processedFiles) {
         try {
+          console.log('⬆️ Uploading file:', file.name);
           await supabaseService.uploadDocument(folderId, file);
+          console.log('✅ File uploaded:', file.name);
         } catch (err) {
-          console.error('Failed to upload to Supabase:', err);
+          console.error('❌ Failed to upload to Supabase:', err);
         }
       }
+    } else {
+      console.log('⚠️ Supabase not connected, files stored locally only');
     }
     
     setFolders(prev => prev.map(f => {
@@ -176,10 +254,11 @@ function App() {
   };
 
   const handleClearData = async () => {
-    if (!window.confirm('Are you sure you want to clear everything? This cannot be undone!')) return;
+    if (!window.confirm('确定要清空所有数据吗？此操作无法撤销！')) return;
     
     setFolders([]);
     setMessages(INITIAL_MESSAGES);
+    localStorage.removeItem('current_conversation_id');
     
     if (isSupabaseConnected) {
       try {
@@ -210,13 +289,15 @@ function App() {
     try {
       const context = collectFileContext(folders);
       const activeConfig = settings.providers[settings.activeProvider];
+      const customPrompt = settings.systemPrompt?.systemPrompt;
       
       const result = await generateResponse(
         userMsg.content, 
         context, 
         settings.activeProvider, 
         activeConfig, 
-        useSearch
+        useSearch,
+        customPrompt
       );
       
       const aiMsg: Message = {
@@ -249,7 +330,7 @@ function App() {
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `🙈 Oops! Something went wrong: ${err.message}`,
+        content: `🙈 哎呀！出错了：${err.message}`,
         timestamp: Date.now()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -266,11 +347,13 @@ function App() {
   };
 
   const handleSettingsSave = (newSettings: AppSettings) => {
+    console.log('💾 Saving settings:', newSettings);
     setSettings(newSettings);
     
     // Reinitialize Supabase if credentials changed
-    if (newSettings.supabase?.url && newSettings.supabase?.anonKey) {
-      supabaseService.initialize(newSettings.supabase.url, newSettings.supabase.anonKey);
+    if (newSettings.supabase?.url && newSettings.supabase?.publishableKey) {
+      console.log('🔄 Reinitializing Supabase...');
+      supabaseService.initialize(newSettings.supabase.url, newSettings.supabase.publishableKey);
       setIsSupabaseConnected(true);
       loadDataFromSupabase();
     }
@@ -296,7 +379,7 @@ function App() {
     return (
       <div className="mt-4 p-3 bg-sky-50 rounded-xl border border-sky-100 text-xs text-slate-600">
         <p className="font-bold mb-2 flex items-center gap-1">
-          <span className="text-base">🌍</span> Sources found:
+          <span className="text-base">🌍</span> 参考来源：
         </p>
         <div className="space-y-1">
           {chunks.map((chunk: any, i: number) => {
@@ -338,7 +421,7 @@ function App() {
                <div className="mt-3 flex items-center gap-2 text-xs">
                  <DatabaseIcon className={`w-4 h-4 ${isSupabaseConnected ? 'text-green-300' : 'text-white/40'}`} />
                  <span className={`font-bold ${isSupabaseConnected ? 'text-white' : 'text-white/60'}`}>
-                   {isSupabaseConnected ? 'Cloud Connected ✓' : 'Local Mode'}
+                   {isSupabaseConnected ? '云端已连接 ✓' : '本地模式'}
                  </span>
                </div>
             </div>
@@ -346,16 +429,16 @@ function App() {
 
           {/* Tab Switcher (Mobile) */}
           <div className="md:hidden px-6 py-2 flex gap-2">
-             <button onClick={() => setActiveTab('files')} className={`flex-1 py-2 rounded-xl font-bold text-sm ${activeTab === 'files' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>Notes</button>
-             <button onClick={() => setActiveTab('chat')} className={`flex-1 py-2 rounded-xl font-bold text-sm ${activeTab === 'chat' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>Chat</button>
+             <button onClick={() => setActiveTab('files')} className={`flex-1 py-2 rounded-xl font-bold text-sm ${activeTab === 'files' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>笔记</button>
+             <button onClick={() => setActiveTab('chat')} className={`flex-1 py-2 rounded-xl font-bold text-sm ${activeTab === 'chat' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>聊天</button>
           </div>
 
           {/* Files List */}
           <div className={`flex-1 overflow-y-auto px-6 py-2 ${activeTab === 'files' ? 'block' : 'hidden md:block'}`}>
              <div className="flex items-center justify-between mb-4 mt-2">
-               <h2 className="font-extrabold text-slate-700 text-sm uppercase tracking-wider">My Bookshelf</h2>
+               <h2 className="font-extrabold text-slate-700 text-sm uppercase tracking-wider">我的书架</h2>
                <span className="bg-orange-100 text-orange-500 text-[10px] font-black px-2 py-1 rounded-lg">
-                 {folders.reduce((acc, f) => acc + f.files.length, 0)} DOCS
+                 {folders.reduce((acc, f) => acc + f.files.length, 0)} 文档
                </span>
              </div>
 
@@ -366,7 +449,7 @@ function App() {
                    value={newFolderName}
                    onChange={(e) => setNewFolderName(e.target.value)}
                    onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
-                   placeholder="New subject..."
+                   placeholder="新建文件夹..."
                    className="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-2 text-sm font-bold text-slate-600 focus:outline-none focus:border-indigo-200 transition-all placeholder:text-slate-300 placeholder:font-normal"
                  />
                  <button onClick={handleAddFolder} className="bg-indigo-500 hover:bg-indigo-600 text-white w-10 rounded-2xl flex items-center justify-center font-bold shadow-md shadow-indigo-200 transition-all active:scale-95">+</button>
@@ -385,28 +468,35 @@ function App() {
                      </button>
                    </div>
                    
-                   <div className="space-y-2 mb-3">
-                     {folder.files.map(file => (
-                       <div key={file.id} className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded-xl">
-                         <FileTextIcon className="w-3 h-3 text-slate-400" />
-                         <span className="truncate flex-1 font-medium">{file.name}</span>
-                       </div>
-                     ))}
-                     {folder.files.length === 0 && <div className="text-[10px] text-slate-300 text-center py-2 font-medium">Empty folder</div>}
-                   </div>
+                  <div className="space-y-2 mb-3">
+                    {folder.files.map(file => (
+                      <div key={file.id} className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded-xl hover:bg-slate-100 transition-colors group/file">
+                        <FileTextIcon className="w-3 h-3 text-slate-400" />
+                        <span className="truncate flex-1 font-medium">{file.name}</span>
+                        <button 
+                          onClick={() => handleDeleteFile(folder.id, file.id)}
+                          className="opacity-0 group-hover/file:opacity-100 text-rose-300 hover:text-rose-500 transition-all"
+                          title="删除文件"
+                        >
+                          <TrashIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {folder.files.length === 0 && <div className="text-[10px] text-slate-300 text-center py-2 font-medium">空文件夹</div>}
+                  </div>
 
-                   <label className="flex items-center justify-center gap-2 w-full py-2 border-2 border-dashed border-indigo-100 rounded-xl text-xs font-bold text-indigo-300 hover:text-indigo-500 hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer transition-all">
-                     <UploadIcon className="w-3.5 h-3.5" />
-                     <span>Add Notes</span>
-                     <input type="file" multiple accept=".txt,.md,.json,.csv,.docx,.pdf" className="hidden" onChange={(e) => handleFileUpload(folder.id, e.target.files)} />
-                   </label>
+                  <label className="flex items-center justify-center gap-2 w-full py-2 border-2 border-dashed border-indigo-100 rounded-xl text-xs font-bold text-indigo-300 hover:text-indigo-500 hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer transition-all">
+                    <UploadIcon className="w-3.5 h-3.5" />
+                    <span>添加笔记</span>
+                    <input type="file" multiple accept=".txt,.md,.json,.csv,.docx,.pdf,.ppt,.pptx" className="hidden" onChange={(e) => handleFileUpload(folder.id, e.target.files)} />
+                  </label>
                  </div>
                ))}
                
                {folders.length === 0 && (
                  <div className="text-center py-12 opacity-40">
                    <p className="text-4xl mb-2">📂</p>
-                   <p className="text-sm font-bold text-slate-400">No folders yet!</p>
+                   <p className="text-sm font-bold text-slate-400">还没有文件夹！</p>
                  </div>
                )}
              </div>
@@ -419,7 +509,7 @@ function App() {
               className="flex-1 flex items-center justify-center gap-2 bg-slate-800 text-white py-3 rounded-2xl font-bold text-xs hover:bg-slate-700 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-slate-200"
             >
               <SettingsIcon className="w-4 h-4" />
-              Settings
+              设置中心
             </button>
             <button 
               onClick={handleClearData}
@@ -438,7 +528,7 @@ function App() {
             <div className="flex flex-col">
               <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
                 <SparklesIcon className="w-5 h-5 text-yellow-400" />
-                Analysis Chat
+                AI 分析聊天
               </h2>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-400 mt-0.5">
                 <span className="uppercase tracking-wide">
@@ -448,13 +538,15 @@ function App() {
             </div>
 
             {/* Toggle Search */}
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-100 shadow-sm">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Web Search</span>
+            <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border-2 border-slate-100 shadow-sm">
+               <span className={`text-xs font-bold uppercase tracking-wider transition-colors ${useSearch ? 'text-indigo-600' : 'text-slate-400'}`}>
+                 网络搜索
+               </span>
                <button 
                  onClick={() => setUseSearch(!useSearch)}
-                 className={`w-10 h-6 rounded-full p-1 transition-colors duration-300 relative ${useSearch ? 'bg-sky-400' : 'bg-slate-200'}`}
+                 className={`w-11 h-6 rounded-full p-0.5 transition-all duration-200 ${useSearch ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-slate-300'}`}
                >
-                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${useSearch ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                 <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${useSearch ? 'translate-x-5' : 'translate-x-0'}`}></div>
                </button>
             </div>
           </div>
@@ -532,7 +624,7 @@ function App() {
                     handleSendMessage();
                   }
                 }}
-                placeholder={activeApiKey ? `Ask ${settings.activeProvider}...` : "Ask me (Demo Mode)..."}
+                placeholder={activeApiKey ? `向 ${settings.activeProvider} 提问...` : "向我提问（演示模式）..."}
                 className="flex-1 bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-4 text-sm font-medium text-slate-700 placeholder:text-slate-300"
                 rows={1}
               />

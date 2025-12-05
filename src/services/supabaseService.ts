@@ -3,15 +3,16 @@ import { Folder, FileItem, Message } from '../types';
 
 class SupabaseService {
   private client: SupabaseClient | null = null;
+  private folderIdMap: Map<string, number> = new Map();
 
-  initialize(url: string, anonKey: string) {
-    this.client = createClient(url, anonKey);
+  initialize(url: string, publishableKey: string) {
+    this.client = createClient(url, publishableKey);
   }
 
   async testConnection(): Promise<boolean> {
     if (!this.client) return false;
     try {
-      const { error } = await this.client.from('documents').select('id').limit(1);
+      const { error } = await this.client.from('folders').select('id').limit(1);
       return !error;
     } catch {
       return false;
@@ -22,74 +23,134 @@ class SupabaseService {
   async getFolders(): Promise<Folder[]> {
     if (!this.client) return [];
     
-    const { data: documents } = await this.client
+    // Get all folders
+    const { data: foldersData, error: folderError } = await this.client
+      .from('folders')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (folderError || !foldersData) {
+      console.error('Failed to fetch folders:', folderError);
+      return [];
+    }
+
+    // Get all documents
+    const { data: documents, error: docError } = await this.client
       .from('documents')
       .select('*')
       .order('created_at', { ascending: true });
 
-    if (!documents) return [];
+    if (docError) {
+      console.error('Failed to fetch documents:', docError);
+    }
 
-    // Group by folder_name
-    const folderMap = new Map<string, FileItem[]>();
-    
-    documents.forEach(doc => {
-      const folderName = doc.folder_name || 'Default';
-      if (!folderMap.has(folderName)) {
-        folderMap.set(folderName, []);
-      }
-      folderMap.get(folderName)!.push({
-        id: doc.id,
-        name: doc.file_name,
-        content: doc.parsed_content || '',
-        isText: doc.parse_status === 'success',
-        fromDocx: doc.file_type === 'docx',
-        timestamp: new Date(doc.created_at).getTime()
-      });
-    });
+    // Map folders with their documents
+    const folders: Folder[] = foldersData.map(folder => {
+      this.folderIdMap.set(folder.name, folder.id);
+      
+      const files: FileItem[] = documents
+        ?.filter(doc => doc.folder_id === folder.id)
+        .map(doc => ({
+          id: doc.id.toString(),
+          name: doc.file_name,
+          content: doc.content || '',
+          isText: doc.parse_status === 'success',
+          fromDocx: doc.file_type === 'docx',
+          timestamp: new Date(doc.created_at).getTime()
+        })) || [];
 
-    const folders: Folder[] = [];
-    folderMap.forEach((files, name) => {
-      folders.push({
-        id: name,
-        name,
+      return {
+        id: folder.id.toString(),
+        name: folder.name,
         files
-      });
+      };
     });
 
     return folders;
   }
 
   async createFolder(folder: Folder): Promise<void> {
-    // Folders are created implicitly when documents are uploaded
-    // Just validate
     if (!this.client) throw new Error('Supabase not initialized');
+    
+    const { data, error } = await this.client
+      .from('folders')
+      .insert({
+        name: folder.name,
+        user_id: null // Anonymous user
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to create folder:', error);
+      throw error;
+    }
+
+    if (data) {
+      this.folderIdMap.set(folder.name, data.id);
+    }
   }
 
   async deleteFolder(folderId: string): Promise<void> {
     if (!this.client) return;
     
+    const numericId = parseInt(folderId);
+    if (isNaN(numericId)) return;
+
+    // Delete documents first (cascade should handle this, but being explicit)
     await this.client
       .from('documents')
       .delete()
-      .eq('folder_name', folderId);
+      .eq('folder_id', numericId);
+
+    // Delete folder
+    await this.client
+      .from('folders')
+      .delete()
+      .eq('id', numericId);
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    if (!this.client) return;
+    
+    const numericId = parseInt(documentId);
+    if (isNaN(numericId)) return;
+
+    const { error } = await this.client
+      .from('documents')
+      .delete()
+      .eq('id', numericId);
+
+    if (error) {
+      console.error('Failed to delete document:', error);
+      throw error;
+    }
   }
 
   // Documents
   async uploadDocument(folderId: string, file: FileItem): Promise<void> {
     if (!this.client) throw new Error('Supabase not initialized');
 
+    const numericFolderId = parseInt(folderId);
+    if (isNaN(numericFolderId)) {
+      throw new Error('Invalid folder ID');
+    }
+
     const { error } = await this.client
       .from('documents')
       .insert({
-        id: file.id,
-        folder_name: folderId,
+        folder_id: numericFolderId,
         file_name: file.name,
-        file_type: file.fromDocx ? 'docx' : file.name.split('.').pop()?.toLowerCase(),
-        parsed_content: file.content,
-        parse_status: file.isText ? 'success' : 'failed'
+        file_type: file.fromDocx ? 'docx' : file.name.split('.').pop()?.toLowerCase() || 'txt',
+        content: file.content,
+        parse_status: file.isText ? 'success' : 'failed',
+        user_id: null // Anonymous user
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Failed to upload document:', error);
+      throw error;
+    }
   }
 
   // Conversations

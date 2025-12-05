@@ -31,13 +31,18 @@ export interface ProviderConfig {
 
 export interface SupabaseConfig {
   url: string;
-  anonKey: string;
+  publishableKey: string;
+}
+
+export interface SystemPromptConfig {
+  systemPrompt: string;
 }
 
 export interface AppSettings {
   activeProvider: AIProvider;
   providers: Record<AIProvider, ProviderConfig>;
   supabase: SupabaseConfig;
+  systemPrompt?: SystemPromptConfig;
 }
 
 export type Tab = 'files' | 'chat';

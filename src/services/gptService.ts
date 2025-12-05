@@ -1,7 +1,8 @@
 import { Folder, AIProvider, ProviderConfig } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
-const SYSTEM_PROMPT = `You are an academic assistant for a UCL MPA (ESG) student.
+// 默认系统提示词（仅作为备用，优先使用配置中的提示词）
+export const DEFAULT_SYSTEM_PROMPT = `You are an academic assistant for a UCL MPA (ESG) student.
 
 Analyze questions from an academic policy perspective, focusing on:
 - Environmental, Social, and Governance (ESG) frameworks
@@ -44,9 +45,12 @@ export const generateResponse = async (
   context: string,
   provider: AIProvider,
   config: ProviderConfig,
-  useSearch: boolean = false
+  useSearch: boolean = false,
+  customSystemPrompt?: string
 ): Promise<GenerationResult> => {
   
+  // 优先使用自定义提示词，否则使用默认提示词
+  const systemPrompt = customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
   const fullPrompt = `User question:\n${question}\n\nNotes context:\n${context || '[No notes available]'}`;
 
   // Gemini Handler
@@ -57,7 +61,7 @@ export const generateResponse = async (
       let modelName = config.model || 'gemini-2.0-flash-exp';
       
       const reqConfig: any = {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: systemPrompt,
       };
 
       if (useSearch) {
@@ -93,7 +97,7 @@ export const generateResponse = async (
         body: JSON.stringify({
           model: config.model,
           messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: systemPrompt },
             { role: 'user', content: fullPrompt }
           ],
         })
