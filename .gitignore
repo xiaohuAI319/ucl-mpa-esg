@@ -42,6 +42,12 @@ wrangler.toml
 *.tmp
 *.temp
 
+# Archive files
+*.zip
+*.rar
+*.7z
+*.tar.gz
+
 # Documentation (except README)
 *.md
 !README.md
